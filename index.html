@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>es工坊 - 原生安卓应用开发工作室</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>es</text></svg>" />
+<style>
+:root {
+  --bg-primary: #0f1029;
+  --bg-secondary: #1a1b3d;
+  --accent: #6c8cff;
+  --accent-light: #8aa5ff;
+  --text-primary: #ffffff;
+  --text-secondary: #c5c7e8;
+  --glass: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --success: #4ade80;
+  --danger: #f87171;
+  --warning: #fbbf24;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: linear-gradient(135deg, #0f1029 0%, #1a1b3d 50%, #251f4d 100%);
+  min-height: 100vh;
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+/* 背景装饰光斑 - 呼吸动画 */
+body::before, body::after {
+  content: '';
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  z-index: -1;
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite;
+}
+body::before {
+  background: #6c8cff;
+  top: -200px;
+  right: -200px;
+}
+body::after {
+  background: #a855f7;
+  bottom: -200px;
+  left: -200px;
+  animation-delay: -4s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, 30px) scale(1.1); }
+}
+
+/* 噪点纹理层 */
+.noise-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ========== 导航栏 ========== */
+nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 16, 41, 0.5);
+  border-bottom: 1px solid transparent;
+  padding: 16px max(20px, calc(50% - 600px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 1000;
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+nav.scrolled {
+  background: rgba(15, 16, 41, 0.85);
+  border-bottom-color: var(--glass-border);
+  padding-top: 12px;
+  padding-bottom: 12px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+
+.nav-brand {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6c8cff, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 1px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 36px;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.nav-links a:hover {
+  color: var(--text-primary);
+}
+
+.nav-links a:hover::after {
+  width: 100%;
+}
+
+.hamburger {
+  display: none;
+  font-size: 24px;
+  color: #fff;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 8px;
+}
+
+/* ========== 主容器 ========== */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 100px 20px 60px;
+}
+
+/* ========== 页面切换 ========== */
+.page {
+  display: none;
+  animation: fadeInUp 0.5s ease forwards;
+}
+.page.active {
+  display: block;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== 玻璃卡片 ========== */
+.glass-card {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: var(--glass);
+  border-radius: 20px;
+  padding: 28px;
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(108, 140, 255, 0.15);
+}
+
+/* ========== 首页 Hero ========== */
+.hero {
+  text-align: center;
+  padding: 80px 20px 60px;
+}
+
+.hero h1 {
+  font-size: clamp(36px, 6vw, 56px);
+  font-weight: 800;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #c5c7e8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+  animation: heroTitleIn 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero p {
+  color: var(--text-secondary);
+  font-size: 18px;
+  max-width: 600px;
+  margin: 0 auto 40px;
+  line-height: 1.7;
+  animation: heroTextIn 1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+}
+
+.hero-buttons {
+  animation: heroButtonsIn 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+}
+
+@keyframes heroTitleIn {
+  from { opacity: 0; transform: translateY(30px); letter-spacing: 0.1em; }
+  to { opacity: 1; transform: translateY(0); letter-spacing: normal; }
+}
+
+@keyframes heroTextIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes heroButtonsIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  padding: 14px 36px;
+  background: linear-gradient(135deg, #6c8cff, #5a75e6);
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  text-decoration: none;
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(108, 140, 255, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-secondary {
+  padding: 14px 36px;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ========== 特性卡片 ========== */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 60px;
+}
+
+.feature-card {
+  padding: 32px 28px;
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.feature-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.feature-card:nth-child(1) { transition-delay: 0.1s; }
+.feature-card:nth-child(2) { transition-delay: 0.2s; }
+.feature-card:nth-child(3) { transition-delay: 0.3s; }
+
+.feature-card:hover {
+  transform: translateY(-8px) rotateX(2deg);
+}
+
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(108, 140, 255, 0.2), rgba(168, 85, 247, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover .feature-icon {
+  transform: scale(1.1) rotate(-5deg);
+  box-shadow: 0 8px 24px rgba(108, 140, 255, 0.3);
+}
+
+.feature-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--accent);
+}
+
+.feature-card h3 {
+  font-size: 20px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.feature-card p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+/* ========== 软件页面 ========== */
+.page-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.page-subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.software-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.software-info h3 {
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.software-desc {
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin-bottom: 24px;
+}
+
+.feature-list {
+  list-style: none;
+}
+
+.feature-list li {
+  padding: 10px 0;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.feature-list li::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+
+/* 轮播图 */
+.carousel {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 9/16;
+  max-height: 500px;
+  background: #000;
+}
+
+.carousel-track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.4s ease;
+}
+
+.carousel-track img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  z-index: 2;
+}
+
+.carousel-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.carousel-btn.prev { left: 10px; }
+.carousel-btn.next { right: 10px; }
+
+.carousel-dots {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.carousel-dot.active {
+  background: #fff;
+  width: 18px;
+  border-radius: 3px;
+}
+
+/* ========== 下载页面 ========== */
+.download-card {
+  text-align: center;
+  padding: 48px 32px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.download-card h3 {
+  font-size: 28px;
+  margin-bottom: 16px;
+}
+
+.download-card .version-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  background: rgba(108, 140, 255, 0.15);
+  color: var(--accent-light);
+  border-radius: 20px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.download-card p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+/* ========== 产品展示大区块（vivo风格） ========== */
+.showcase-section {
+  padding: 100px 0;
+  position: relative;
+}
+
+.showcase-text {
+  max-width: 600px;
+  margin-bottom: 48px;
+}
+
+.showcase-label {
+  display: inline-block;
+  padding: 6px 16px;
+  background: rgba(108, 140, 255, 0.15);
+  color: var(--accent-light);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  letter-spacing: 0.5px;
+}
+
+.showcase-title {
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+}
+
+.showcase-desc {
+  color: var(--text-secondary);
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.showcase-image {
+  width: 100%;
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+}
+
+.showcase-image img {
+  width: 100%;
+  display: block;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.showcase-image:hover img {
+  transform: scale(1.02);
+}
+
+/* 左右交替布局 */
+.showcase-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+  margin-bottom: 100px;
+}
+
+.showcase-row.reverse .showcase-text {
+  order: 2;
+}
+
+/* ========== 苹果风格：极简产品特写 ========== */
+.apple-showcase {
+  padding: 120px 0;
+  text-align: center;
+  position: relative;
+}
+
+.apple-title {
+  font-size: clamp(40px, 7vw, 72px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  background: linear-gradient(180deg, #ffffff, #a0a3c4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.apple-subtitle {
+  font-size: 21px;
+  color: var(--text-secondary);
+  max-width: 560px;
+  margin: 0 auto 60px;
+  line-height: 1.5;
+}
+
+.apple-product-img {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: 0 40px 120px rgba(108, 140, 255, 0.2);
+}
+
+.apple-product-img img {
+  width: 100%;
+  display: block;
+}
+
+/* ========== OPPO风格：渐变拍照展示 ========== */
+.oppo-showcase {
+  padding: 100px 0;
+  border-radius: 32px;
+  background: linear-gradient(135deg, #1a1b4b 0%, #2d1b69 50%, #4c1d95 100%);
+  position: relative;
+  overflow: hidden;
+  margin: 60px -20px;
+}
+
+.oppo-showcase::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.3), transparent 70%);
+  filter: blur(60px);
+}
+
+.oppo-content {
+  position: relative;
+  padding: 0 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.oppo-badge {
+  display: inline-block;
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.oppo-title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  margin-bottom: 16px;
+  line-height: 1.2;
+}
+
+.oppo-desc {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.7;
+  font-size: 16px;
+}
+
+.oppo-img {
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.oppo-img img {
+  width: 100%;
+  display: block;
+}
+
+/* ========== 真我风格：暗黑科技感 ========== */
+.realme-showcase {
+  padding: 100px 0;
+  text-align: center;
+}
+
+.realme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+
+.realme-card {
+  padding: 32px 24px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.realme-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #22d3ee, transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.realme-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(34, 211, 238, 0.3);
+  box-shadow: 0 20px 40px rgba(34, 211, 238, 0.1);
+}
+
+.realme-card:hover::before {
+  opacity: 1;
+}
+
+.realme-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(34, 211, 238, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.realme-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: #22d3ee;
+}
+
+.realme-card h3 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.realme-card p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 数据统计 */
+.stats-section {
+  padding: 80px 0;
+  text-align: center;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 40px;
+  margin-top: 48px;
+}
+
+.stat-item {
+  padding: 24px;
+}
+
+.stat-number {
+  font-size: 48px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6c8cff, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+/* ========== 页脚 ========== */
+footer {
+  margin-top: 80px;
+  padding: 60px max(20px, calc(50% - 600px)) 40px;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.footer-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 40px;
+  margin-bottom: 40px;
+}
+
+.footer-brand {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6c8cff, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 16px;
+}
+
+.footer-desc {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 300px;
+}
+
+.footer-col h4 {
+  font-size: 15px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.footer-col ul {
+  list-style: none;
+}
+
+.footer-col li {
+  margin-bottom: 10px;
+}
+
+.footer-col a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.footer-col a:hover {
+  color: var(--accent-light);
+}
+
+.footer-bottom {
+  padding-top: 24px;
+  border-top: 1px solid var(--glass-border);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+}
+
+/* ========== 联系页面 ========== */
+.contact-card {
+  max-width: 500px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.contact-info {
+  margin: 24px 0;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.contact-item svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--accent);
+}
+
+/* ========== 弹窗 ========== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(145deg, #1e1f45, #161735);
+  border-radius: 24px;
+  padding: 32px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  animation: modalIn 0.3s ease;
+}
+
+@keyframes modalIn {
+  0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+  60% { transform: scale(1.02) translateY(-5px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* 拼图成功庆祝动画 */
+@keyframes successPulse {
+  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); }
+  70% { box-shadow: 0 0 0 15px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+.puzzle-container.success {
+  animation: successPulse 0.8s ease-out;
+  border: 2px solid #4ade80;
+}
+
+/* 页面切换转场 */
+.page {
+  animation: pageIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 响应式动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.modal-box h2 {
+  font-size: 22px;
+  margin-bottom: 12px;
+}
+
+.modal-desc {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+/* 隐私勾选 */
+.privacy-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+
+.privacy-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.privacy-row span {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.privacy-link {
+  color: var(--accent-light);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ========== 拼图验证码 ========== */
+.puzzle-container {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: #000;
+  user-select: none;
+}
+
+.puzzle-bg {
+  width: 100%;
+  display: block;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+}
+
+.puzzle-gap {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.8);
+}
+
+.puzzle-block {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  transition: left 0.2s ease;
+}
+
+.puzzle-tip {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* 滑块条 */
+.slide-track {
+  position: relative;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.slide-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: rgba(108, 140, 255, 0.3);
+  border-radius: 12px;
+}
+
+.slide-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  background: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  font-weight: bold;
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: left 0.2s ease;
+  z-index: 2;
+}
+
+.slide-handle:active {
+  cursor: grabbing;
+}
+
+/* 确认按钮 */
+.modal-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #6c8cff, #5a75e6);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.modal-btn:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
+}
+
+.modal-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(108, 140, 255, 0.3);
+}
+
+/* 隐私条款弹窗 */
+.privacy-modal {
+  max-width: 560px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.privacy-content {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.privacy-content h4 {
+  color: var(--text-primary);
+  margin: 16px 0 8px;
+  font-size: 15px;
+}
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .nav-links {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: rgba(15, 16, 41, 0.98);
+    backdrop-filter: blur(20px);
+    flex-direction: column;
+    padding: 20px;
+    gap: 16px;
+    display: none;
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .nav-links.open {
+    display: flex;
+  }
+
+  .hamburger {
+    display: block;
+  }
+
+  .software-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .carousel {
+    max-height: 400px;
+  }
+
+  .hero {
+    padding: 40px 0;
+  }
+
+  .showcase-row {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    margin-bottom: 60px;
+  }
+
+  .showcase-row.reverse .showcase-text {
+    order: 0;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+
+  .stat-number {
+    font-size: 36px;
+  }
+
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .apple-showcase {
+    padding: 60px 0;
+  }
+
+  .oppo-showcase {
+    margin: 40px -20px;
+    border-radius: 0;
+  }
+
+  .oppo-content {
+    grid-template-columns: 1fr;
+    padding: 0 24px;
+  }
+
+  .realme-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- 噪点纹理层 -->
+<div class="noise-overlay"></div>
+
+<!-- ===== 导航栏 ===== -->
+<nav>
+  <div class="nav-brand">es工坊</div>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#" onclick="switchPage('home');return false;">首页</a></li>
+    <li><a href="#" onclick="switchPage('software');return false;">软件</a></li>
+    <li><a href="#" onclick="switchPage('download');return false;">下载</a></li>
+    <li><a href="#" onclick="switchPage('contact');return false;">联系我们</a></li>
+  </ul>
+  <button class="hamburger" onclick="toggleMenu()" aria-label="菜单">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </button>
+</nav>
+
+<!-- ===== 主内容 ===== -->
+<main class="container">
+
+  <!-- 首页 -->
+  <div id="home" class="page active">
+    <div class="hero">
+      <h1>原生安卓应用<br>稳定 · 简洁 · 高性能</h1>
+      <p>es工坊专注于原生安卓应用开发，不套网页壳，运行流畅，持续迭代更新，为用户提供高质量的工具软件。</p>
+      <div class="hero-buttons">
+        <button class="btn-primary" onclick="switchPage('download')">立即下载</button>
+        <button class="btn-secondary" onclick="switchPage('software')">了解更多</button>
+      </div>
+    </div>
+
+    <div class="features-grid">
+      <div class="glass-card feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+          </svg>
+        </div>
+        <h3>原生开发</h3>
+        <p>全部项目使用Java原生安卓开发，不套网页壳，运行流畅，适配OPPO、vivo等主流手机品牌。</p>
+      </div>
+
+      <div class="glass-card feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+        </div>
+        <h3>安全稳定</h3>
+        <p>不收集用户隐私数据，无广告推送，纯净体验。每一个版本都经过严格测试，确保稳定可靠。</p>
+      </div>
+
+      <div class="glass-card feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+        </div>
+        <h3>持续更新</h3>
+        <p>内置应用更新弹窗，管理员推送全局公告，第一时间获取新版本消息和功能更新。</p>
+      </div>
+    </div>
+
+    <!-- 苹果风格：极简产品特写 -->
+    <div class="apple-showcase">
+      <h2 class="apple-title">es导航</h2>
+      <p class="apple-subtitle">极致简约，原生体验。每一处细节，都为流畅而生。</p>
+      <div class="apple-product-img">
+        <img src="https://picsum.photos/id/1011/1200/700" alt="es导航产品图">
+      </div>
+    </div>
+
+    <!-- 产品展示大区块（vivo风格左右交替） -->
+    <div class="showcase-section">
+      <div class="showcase-row">
+        <div class="showcase-text">
+          <span class="showcase-label">es导航 v2.0</span>
+          <h2 class="showcase-title">为精准导航而生</h2>
+          <p class="showcase-desc">
+            基于MapLibre地图引擎打造，支持在线矢量地图与本地高清卫星瓦片混合渲染。
+            实时路况、离线语音、路线规划，一站式解决你的出行需求。
+          </p>
+        </div>
+        <div class="showcase-image">
+          <img src="https://picsum.photos/id/1031/800/600" alt="es导航界面">
+        </div>
+      </div>
+
+      <div class="showcase-row reverse">
+        <div class="showcase-text">
+          <span class="showcase-label">原生开发</span>
+          <h2 class="showcase-title">纯Java 原生体验</h2>
+          <p class="showcase-desc">
+            不套网页壳，不依赖WebView，每一行代码都是原生安卓编写。
+            启动速度快，运行流畅，耗电更低，适配主流品牌手机。
+          </p>
+        </div>
+        <div class="showcase-image">
+          <img src="https://picsum.photos/id/1035/800/600" alt="原生开发">
+        </div>
+      </div>
+    </div>
+
+    <!-- OPPO风格：渐变拍照展示 -->
+    <div class="oppo-showcase">
+      <div class="oppo-content">
+        <div>
+          <span class="oppo-badge">全新升级</span>
+          <h2 class="oppo-title">影像级地图渲染</h2>
+          <p class="oppo-desc">
+            高清矢量瓦片 + 卫星影像混合渲染，每一次缩放都清晰锐利。
+            深色模式护眼，字体大小随心调，打造专属你的导航视觉。
+          </p>
+        </div>
+        <div class="oppo-img">
+          <img src="https://picsum.photos/id/1015/800/600" alt="地图渲染">
+        </div>
+      </div>
+    </div>
+
+    <!-- 真我风格：暗黑科技卡片 -->
+    <div class="realme-showcase">
+      <h2 class="showcase-title">硬核科技，极致体验</h2>
+      <p class="showcase-desc" style="text-align:center; max-width:500px; margin:0 auto;">
+        三大核心技术，打造不一样的导航应用
+      </p>
+      <div class="realme-grid">
+        <div class="realme-card">
+          <div class="realme-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <h3>极速启动</h3>
+          <p>原生Java开发，冷启动速度提升60%，点击即用，无需等待。</p>
+        </div>
+        <div class="realme-card">
+          <div class="realme-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <h3>安全隐私</h3>
+          <p>不收集任何个人数据，无广告推送，纯净绿色应用。</p>
+        </div>
+        <div class="realme-card">
+          <div class="realme-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <h3>持续迭代</h3>
+          <p>内置更新系统，管理员全局推送，第一时间体验新功能。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据统计 -->
+    <div class="stats-section">
+      <h2 class="showcase-title" style="text-align:center; margin-bottom:0;">用数字说话</h2>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-number">100%</div>
+          <div class="stat-label">原生开发</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">20+</div>
+          <div class="stat-label">功能模块</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">3+</div>
+          <div class="stat-label">版本迭代</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">0</div>
+          <div class="stat-label">广告推送</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 软件页面 -->
+  <div id="software" class="page">
+    <h2 class="page-title">es导航</h2>
+    <p class="page-subtitle">纯Java原生安卓导航应用，无任何网页嵌入。基于MapLibre地图引擎打造。</p>
+
+    <div class="software-detail">
+      <div class="glass-card software-info">
+        <h3>核心功能</h3>
+        <p class="software-desc">支持在线矢量地图与本地高清卫星瓦片混合渲染，为你提供精准的导航体验。</p>
+        <ul class="feature-list">
+          <li>地点搜索、驾车/步行路线规划，实时路况展示</li>
+          <li>完整离线语音导航包，路口转向、限速语音播报</li>
+          <li>接收管理员全局推送通知，APP内弹窗提醒</li>
+          <li>自带版本更新，应用内直接下载安装新版APK</li>
+          <li>设置面板：深色模式、字体大小、离线地图管理</li>
+        </ul>
+      </div>
+
+      <div class="carousel" id="carousel">
+        <div class="carousel-track" id="carouselTrack">
+          <img src="https://picsum.photos/id/10/400/700" alt="界面预览1">
+          <img src="https://picsum.photos/id/11/400/700" alt="界面预览2">
+          <img src="https://picsum.photos/id/12/400/700" alt="界面预览3">
+          <img src="https://picsum.photos/id/13/400/700" alt="界面预览4">
+          <img src="https://picsum.photos/id/14/400/700" alt="界面预览5">
+        </div>
+        <button class="carousel-btn prev" onclick="carouselPrev()" aria-label="上一张">‹</button>
+        <button class="carousel-btn next" onclick="carouselNext()" aria-label="下一张">›</button>
+        <div class="carousel-dots" id="carouselDots"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下载页面 -->
+  <div id="download" class="page">
+    <h2 class="page-title">下载</h2>
+    <p class="page-subtitle">选择适合你的版本，开始使用。</p>
+
+    <div class="glass-card download-card">
+      <div class="version-badge">最新版本 v2.0</div>
+      <h3>es导航</h3>
+      <p>适配：安卓13及以上，OPPO K9X可正常安装运行。修复地图白屏问题，全新iOS风格毛玻璃UI，纯原生无WebView。</p>
+      <button class="btn-primary" onclick="showToast('开始下载...')">获取安装包</button>
+    </div>
+  </div>
+
+  <!-- 联系我们 -->
+  <div id="contact" class="page">
+    <h2 class="page-title">联系我们</h2>
+    <p class="page-subtitle">有任何问题或建议，欢迎随时联系我们。</p>
+
+    <div class="glass-card contact-card">
+      <h3>联系方式</h3>
+      <div class="contact-info">
+        <div class="contact-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+          <span>3507402847@qq.com</span>
+        </div>
+      </div>
+      <a href="mailto:3507402847@qq.com" class="btn-primary">发送邮件</a>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== 页脚 ===== -->
+<footer>
+  <div class="footer-content">
+    <div>
+      <div class="footer-brand">es工坊</div>
+      <p class="footer-desc">专注原生安卓应用开发，稳定、简洁、高性能。我们自研多款工具软件，持续迭代更新，为用户提供优质体验。</p>
+    </div>
+    <div class="footer-col">
+      <h4>导航</h4>
+      <ul>
+        <li><a href="#" onclick="switchPage('home');return false;">首页</a></li>
+        <li><a href="#" onclick="switchPage('software');return false;">软件</a></li>
+        <li><a href="#" onclick="switchPage('download');return false;">下载</a></li>
+        <li><a href="#" onclick="switchPage('contact');return false;">联系我们</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>联系</h4>
+      <ul>
+        <li><a href="mailto:3507402847@qq.com">3507402847@qq.com</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    © 2026 es工坊. 保留所有权利.
+  </div>
+</footer>
+
+<!-- ===== 首次进入验证弹窗 ===== -->
+<div class="modal-overlay" id="verifyModal">
+  <div class="modal-box">
+    <h2>欢迎来到 es工坊</h2>
+    <p class="modal-desc">在进入本站前，请完成人机验证并阅读隐私条款。</p>
+
+    <label class="privacy-row">
+      <input type="checkbox" id="privacyCheckbox">
+      <span>我已阅读并同意 <span class="privacy-link" onclick="openPrivacy(event)">《隐私条款》</span></span>
+    </label>
+
+    <!-- 拼图验证码 -->
+    <div class="puzzle-container" id="puzzleContainer">
+      <img class="puzzle-bg" id="puzzleBg" src="https://picsum.photos/id/1015/800/450" alt="拼图背景">
+      <div class="puzzle-gap" id="puzzleGap"></div>
+      <div class="puzzle-block" id="puzzleBlock"></div>
+    </div>
+
+    <div class="puzzle-tip" id="puzzleTip">拖动滑块，使拼图对齐缺口</div>
+
+    <div class="slide-track" id="slideTrack">
+      <div class="slide-fill" id="slideFill"></div>
+      <div class="slide-handle" id="slideHandle">→</div>
+    </div>
+
+    <button class="modal-btn" id="enterBtn" disabled>进入官网</button>
+  </div>
+</div>
+
+<!-- ===== 隐私条款弹窗 ===== -->
+<div class="modal-overlay hidden" id="privacyModal">
+  <div class="modal-box privacy-modal">
+    <h2>隐私条款</h2>
+    <div class="privacy-content">
+      <h4>1. 数据收集</h4>
+      <p>es工坊网站不会主动收集你的手机号、姓名、位置等个人隐私信息。</p>
+
+      <h4>2. 访问日志</h4>
+      <p>网站会保留基础访问记录，仅用于排查网站故障，不会对外泄露。</p>
+
+      <h4>3. 第三方服务</h4>
+      <p>本站下载链接、邮件跳转使用第三方服务，第三方平台遵循他们自身隐私政策。</p>
+
+      <h4>4. Cookie</h4>
+      <p>本站仅使用简易Cookie记住本次验证状态，不追踪长期用户行为。</p>
+
+      <h4>5. 用户责任</h4>
+      <p>本站提供的软件全部为自研项目，下载使用软件请遵守国家法律法规。</p>
+
+      <h4>6. 条款更新</h4>
+      <p>我们可随时修订本隐私条款，再次访问网站即视为接受更新后的条款。</p>
+    </div>
+    <button class="modal-btn" style="margin-top:20px;" onclick="closePrivacy()">我已阅读</button>
+  </div>
+</div>
+
+<script>
+// ===== 导航栏滚动效果 =====
+const nav = document.querySelector('nav');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 50) {
+    nav.classList.add('scrolled');
+  } else {
+    nav.classList.remove('scrolled');
+  }
+});
+
+// ===== 滚动揭示动画 =====
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, {
+  threshold: 0.1,
+  rootMargin: '0px 0px -50px 0px'
+});
+
+document.querySelectorAll('.feature-card').forEach(card => {
+  observer.observe(card);
+});
+
+// ===== 页面切换 =====
+function switchPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById(pageId);
+  target.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  closeMenu();
+
+  target.querySelectorAll('.glass-card').forEach((card, i) => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(20px)';
+    setTimeout(() => {
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    }, i * 100);
+  });
+}
+
+function toggleMenu() {
+  document.getElementById('navLinks').classList.toggle('open');
+}
+
+function closeMenu() {
+  document.getElementById('navLinks').classList.remove('open');
+}
+
+// ===== 轮播图 =====
+let carouselIndex = 0;
+const carouselTrack = document.getElementById('carouselTrack');
+const carouselDots = document.getElementById('carouselDots');
+const totalSlides = carouselTrack.children.length;
+
+for (let i = 0; i < totalSlides; i++) {
+  const dot = document.createElement('div');
+  dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+  dot.onclick = () => goToSlide(i);
+  carouselDots.appendChild(dot);
+}
+
+function goToSlide(index) {
+  carouselIndex = index;
+  carouselTrack.style.transform = `translateX(-${index * 100}%)`;
+  document.querySelectorAll('.carousel-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === index);
+  });
+}
+
+function carouselNext() {
+  goToSlide((carouselIndex + 1) % totalSlides);
+}
+
+function carouselPrev() {
+  goToSlide((carouselIndex - 1 + totalSlides) % totalSlides);
+}
+
+// ===== 隐私条款弹窗 =====
+function openPrivacy(e) {
+  e.stopPropagation();
+  document.getElementById('privacyModal').classList.remove('hidden');
+}
+
+function closePrivacy() {
+  document.getElementById('privacyModal').classList.add('hidden');
+}
+
+// ===== 拼图验证码 =====
+const puzzleContainer = document.getElementById('puzzleContainer');
+const puzzleBg = document.getElementById('puzzleBg');
+const puzzleGap = document.getElementById('puzzleGap');
+const puzzleBlock = document.getElementById('puzzleBlock');
+const puzzleTip = document.getElementById('puzzleTip');
+const slideTrack = document.getElementById('slideTrack');
+const slideFill = document.getElementById('slideFill');
+const slideHandle = document.getElementById('slideHandle');
+const privacyCheckbox = document.getElementById('privacyCheckbox');
+const enterBtn = document.getElementById('enterBtn');
+
+const blockSize = 44;
+let gapX = 0;
+let gapY = 0;
+let isVerified = false;
+let isDragging = false;
+let trackPoints = [];
+
+function initPuzzle() {
+  const containerW = puzzleContainer.offsetWidth;
+  const containerH = puzzleBg.offsetHeight || 220;
+
+  gapX = 60 + Math.random() * (containerW - 120 - blockSize);
+  gapY = containerH / 2 - blockSize / 2;
+
+  puzzleGap.style.left = gapX + 'px';
+  puzzleGap.style.top = gapY + 'px';
+  puzzleGap.style.width = blockSize + 'px';
+  puzzleGap.style.height = blockSize + 'px';
+
+  const startX = containerW - blockSize;
+  puzzleBlock.style.left = startX + 'px';
+  puzzleBlock.style.top = gapY + 'px';
+  puzzleBlock.style.width = blockSize + 'px';
+  puzzleBlock.style.height = blockSize + 'px';
+
+  const trackW = slideTrack.offsetWidth;
+  const maxSlideX = trackW - slideHandle.offsetWidth;
+  slideHandle.style.left = maxSlideX + 'px';
+  slideFill.style.width = maxSlideX + 'px';
+
+  isVerified = false;
+  puzzleTip.textContent = '拖动滑块，使拼图对齐缺口';
+  slideHandle.textContent = '←';
+  updateEnterBtn();
+}
+
+puzzleBg.onload = initPuzzle;
+window.addEventListener('resize', initPuzzle);
+
+function updateEnterBtn() {
+  enterBtn.disabled = !(privacyCheckbox.checked && isVerified);
+}
+
+privacyCheckbox.addEventListener('change', updateEnterBtn);
+
+slideHandle.addEventListener('mousedown', startDrag);
+slideHandle.addEventListener('touchstart', startDrag, { passive: true });
+
+document.addEventListener('mousemove', onDrag);
+document.addEventListener('touchmove', onDrag, { passive: true });
+
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+
+function startDrag(e) {
+  if (isVerified) return;
+  isDragging = true;
+  trackPoints = [];
+}
+
+function onDrag(e) {
+  if (!isDragging || isVerified) return;
+
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const trackRect = slideTrack.getBoundingClientRect();
+  const handleW = slideHandle.offsetWidth;
+  const maxX = trackRect.width - handleW;
+
+  let x = clientX - trackRect.left - handleW / 2;
+  x = Math.max(0, Math.min(x, maxX));
+
+  slideHandle.style.left = x + 'px';
+  slideFill.style.width = x + 'px';
+
+  const containerW = puzzleContainer.offsetWidth;
+  const startBlockX = containerW - blockSize;
+  const ratio = x / maxX;
+  const blockX = startBlockX - ratio * startBlockX;
+
+  puzzleBlock.style.left = blockX + 'px';
+
+  trackPoints.push({ x: clientX, t: Date.now() });
+
+  if (Math.abs(blockX - gapX) < 10) {
+    verifySuccess(blockX);
+  }
+}
+
+function endDrag() {
+  isDragging = false;
+}
+
+function checkTrack(points) {
+  if (points.length < 8) return false;
+  const speeds = [];
+  for (let i = 1; i < points.length; i++) {
+    const dx = points[i].x - points[i - 1].x;
+    const dt = points[i].t - points[i - 1].t;
+    if (dt > 0) speeds.push(dx / dt);
+  }
+  if (speeds.length < 5) return false;
+  const avg = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+  const variance = speeds.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / speeds.length;
+  return variance > 0.0004;
+}
+
+function verifySuccess(blockX) {
+  const isHuman = checkTrack(trackPoints);
+
+  if (isHuman) {
+    isVerified = true;
+    puzzleBlock.style.left = gapX + 'px';
+    puzzleTip.textContent = '拼图验证成功';
+    slideHandle.textContent = '✓';
+    puzzleContainer.classList.add('success');
+    updateEnterBtn();
+  } else {
+    puzzleTip.textContent = '验证失败，请重试';
+    puzzleTip.style.color = '#f87171';
+    setTimeout(() => {
+      puzzleTip.style.color = '';
+      initPuzzle();
+    }, 800);
+  }
+  isDragging = false;
+}
+
+enterBtn.onclick = function() {
+  document.getElementById('verifyModal').style.display = 'none';
+};
+
+function showToast(msg) {
+  alert(msg);
+}
+</script>
+
+</body>
+  </html>
